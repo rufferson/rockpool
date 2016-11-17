@@ -97,10 +97,10 @@ void VoiceEndpoint::handleMessage(const QByteArray &data)
                         m_sesType = (SessionType)sessType;
                         m_appUuid = list.attByType(AttAppUuid).uuid;
                         m_codec = list.attByType(AttSpeexInfo).speexInfo;
-                        qDebug() << "Session Setup Request" << ((flags&FlagAppInitiated)?list.attByType(AttAppUuid).uuid.toString():"");
-                        emit sessionSetupRequest(m_appUuid,m_codec);
                         m_sesPhase = PhSetupRequest;
                         m_sesTimer = startTimer(4000);
+                        qDebug() << "Session Setup Request" << ((flags&FlagAppInitiated)?list.attByType(AttAppUuid).uuid.toString():"");
+                        emit sessionSetupRequest(sesId, m_appUuid, m_codec);
                     } else {
                         qWarning() << "Invalid attribute set for dictation request" << list.count;
                     }
@@ -120,11 +120,11 @@ void VoiceEndpoint::handleMessage(const QByteArray &data)
     }
 }
 
-void VoiceEndpoint::sessionSetupResponse(Result result, const QUuid &appUuid)
+void VoiceEndpoint::sessionSetupResponse(quint16 sesId, Result result)
 {
-    if(m_sessId>0) {
-        qDebug() << "Sending session setup result" << result << "at session" << m_sessId << "of type" << m_sesType << "with app" << appUuid;
-        quint32 flags = appUuid.isNull()?0:FlagAppInitiated;
+    if(m_sessId>0 && m_sessId == sesId) {
+        qDebug() << "Sending session setup result" << result << "at session" << m_sessId << "of type" << m_sesType << "with app" << m_appUuid;
+        quint32 flags = m_appUuid.isNull()?0:FlagAppInitiated;
         QByteArray pkt;
         WatchDataWriter writer(&pkt);
         pkt.append((quint8)CmdSessionSetup);
@@ -138,7 +138,8 @@ void VoiceEndpoint::sessionSetupResponse(Result result, const QUuid &appUuid)
         } else {
             if(m_sesTimer)
                 killTimer(m_sesTimer);
-            m_sesTimer = startTimer(6000);
+            // Leave some time for setup and the rest for dictation
+            m_sesTimer = startTimer(11000);
         }
     }
 }
@@ -200,20 +201,18 @@ void VoiceEndpoint::stopAudioStream(quint16 sid)
         m_watchConnection->writeToPebble(WatchConnection::EndpointAudioStream, pkt);
     }
 }
-void VoiceEndpoint::transcriptionResponse(Result result, const QList<Sentence> &data, const QUuid &appUuid)
+void VoiceEndpoint::transcriptionResponse(quint16 sesId, Result result, const QList<Sentence> &data)
 {
-    if(m_sessId>0) {
-        qDebug() << "Results submitted with status" << result << "data" << data.count() << "for" << appUuid.toString();
+    if(m_sessId>0 && m_sessId == sesId) {
+        qDebug() << "Results submitted with status" << result << "data" << data.count() << "for" << m_appUuid.toString();
         if(result == ResSuccess) {
-            if(appUuid.isNull() || appUuid == m_appUuid) {
-                if(data.count()>0) {
-                    m_sesResult.append(data);
-                    if(m_sesPhase==PhAudioStopped) {
-                        if(m_sesTimer)
-                            killTimer(m_sesTimer);
-                        m_sesPhase = PhResultReceived;
-                        m_sesTimer = startTimer(500);
-                    }
+            if(data.count()>0) {
+                m_sesResult.append(data);
+                if(m_sesPhase==PhAudioStopped) {
+                    if(m_sesTimer)
+                        killTimer(m_sesTimer);
+                    m_sesPhase = PhResultReceived;
+                    m_sesTimer = startTimer(500);
                 }
             }
         }
@@ -272,21 +271,22 @@ void VoiceEndpoint::timerEvent(QTimerEvent *event)
         m_sesTimer = 0;
         switch (m_sesPhase) {
         case PhSetupRequest:
-            sessionSetupResponse(ResTimeout,QUuid());
+            sessionSetupResponse(m_sessId, ResTimeout);
             break;
         case PhSetupComplete:
-            sessionSetupResponse(ResInvalidMessage,QUuid());
+            sessionSetupResponse(m_sessId, ResInvalidMessage);
             break;
         case PhAudioStarted:
+            qDebug() << "Aborting audio for session" << m_sessId << "by state timer";
             stopAudioStream(m_sessId);
             break;
         case PhAudioStopped:
             //transcriptionResponse(ResTimeout,QList<Sentence>(),QUuid()); // We should actualy reply like this but lets do...
-            transcriptionResponse(ResSuccess,
-                            QList<Sentence>({
-                                Sentence({8,QList<Word>({{1,2,"No"},{1,3,"one"},{1,5,"dared"},{1,2,"to"},{1,5,"reply"},{1,1,"."},{1,7,"Service"},{1,7,"Timeout"}})})
-                            }),
-                            m_appUuid); // Example transcription - for the reference
+            transcriptionResponse(m_sessId, ResSuccess,
+                QList<Sentence>({
+                    Sentence({8,QList<Word>({{1,2,"No"},{1,3,"one"},{1,5,"dared"},{1,2,"to"},{1,5,"reply"},{1,1,"."},{1,7,"Service"},{1,7,"Timeout"}})})
+                })
+            ); // Example transcription - for the reference
             break;
         case PhResultReceived:
             sendDictationResults();

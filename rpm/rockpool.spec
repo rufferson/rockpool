@@ -20,7 +20,6 @@ License:    GPL3
 URL:        http://getpebble.com/
 Source0:    %{name}-%{version}.tar.xz
 Source100:  rockpool.yaml
-Requires:   sailfish-version >= 2.0.5
 Requires:   sailfishsilica-qt5 >= 0.10.9
 Requires:   systemd-user-session-targets
 Requires:   nemo-qml-plugin-dbus-qt5
@@ -28,6 +27,8 @@ Requires:   qt5-qtwebsockets
 Requires:   quazip
 Requires:   xulrunner-qt5
 Requires:   qtmozembed-qt5
+Requires:   speex
+Requires:   libogg
 BuildRequires:  pkgconfig(Qt5DBus)
 BuildRequires:  pkgconfig(Qt5Bluetooth)
 BuildRequires:  pkgconfig(Qt5Contacts)
@@ -46,6 +47,8 @@ BuildRequires:  pkgconfig(icu-i18n)
 BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(libmkcal-qt5)
 BuildRequires:  pkgconfig(libkcalcoren-qt5)
+BuildRequires:  pkgconfig(speex)
+BuildRequires:  pkgconfig(ogg)
 BuildRequires:  desktop-file-utils
 
 %description

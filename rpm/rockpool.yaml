@@ -32,6 +32,8 @@ PkgConfigBR:
 - zlib
 - libmkcal-qt5
 - libkcalcoren-qt5
+- speex
+- ogg
 Requires:
 - sailfishsilica-qt5 >= 0.10.9
 - systemd-user-session-targets
@@ -40,6 +42,8 @@ Requires:
 - quazip
 - xulrunner-qt5
 - qtmozembed-qt5
+- speex
+- libogg
 Files:
 - '%{_bindir}'
 - '%{_datadir}/%{name}/qml'

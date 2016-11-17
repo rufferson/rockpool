@@ -150,7 +150,7 @@ public:
     };
 
 signals:
-    void sessionSetupRequest(const QUuid &app_uuid, const SpeexInfo &codec);
+    void sessionSetupRequest(quint16 sessId, const QUuid &app_uuid, const SpeexInfo &codec);
     void audioFrame(quint16 sesId, const AudioStream &frame);
     void sessionCloseNotice(quint16 sesId);
 
@@ -162,8 +162,8 @@ protected:
     void timerEvent(QTimerEvent *event) override;
 
 public slots:
-    void sessionSetupResponse(Result result, const QUuid &appUuid);
-    void transcriptionResponse(Result result, const QList<Sentence> &data, const QUuid &appUuid);
+    void sessionSetupResponse(quint16 sesId, Result result);
+    void transcriptionResponse(quint16 sesId, Result result, const QList<Sentence> &data);
     void sendDictationResults();
     void stopAudioStream();
     void stopAudioStream(quint16 sid);

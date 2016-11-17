@@ -26,10 +26,6 @@ DBusPebble::DBusPebble(Pebble *pebble, QObject *parent):
     connect(pebble, &Pebble::devConServerStateChanged, this, &DBusPebble::DevConnectionChanged);
     connect(pebble, &Pebble::devConCloudStateChanged, this, &DBusPebble::DevConnCloudChanged);
     connect(pebble, &Pebble::oauthTokenChanged, this, &DBusPebble::oauthTokenChanged);
-    connect(pebble, &Pebble::voiceSessionSetup, this, &DBusPebble::voiceSessionSetup);
-    connect(pebble, &Pebble::voiceSessionStream, this, &DBusPebble::voiceSessionStream);
-    connect(pebble, &Pebble::voiceSessionDumped, this, &DBusPebble::voiceSessionDumped);
-    connect(pebble, &Pebble::voiceSessionClosed, this, &DBusPebble::voiceSessionClosed);
 }
 
 QString DBusPebble::Address() const
@@ -128,16 +124,6 @@ QVariantMap DBusPebble::getFavoriteContacts(const QStringList &names) const
         ret.insert(key,QVariant::fromValue(cans.value(key)));
     }
     return ret;
-}
-
-/**
- * @brief DBusPebble::voiceSessionResult
- * @param s dumpFile
- * @param aaasu sentences
- */
-void DBusPebble::voiceSessionResult(const QString &dumpFile, const QVariantList &sentences)
-{
-    m_pebble->voiceSessionResult(dumpFile, sentences);
 }
 
 void DBusPebble::resetTimeline()

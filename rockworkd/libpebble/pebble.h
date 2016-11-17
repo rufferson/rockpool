@@ -176,9 +176,6 @@ public slots:
     QString profileWhen(bool connected) const;
 
     void dumpLogs(const QString &fileName) const;
-    //void voiceSessionResponse(quint8 result, const QUuid &appUuid);
-    void voiceAudioStop();
-    void voiceSessionResult(const QString &fileName, const QVariantList &sentences);
 
 private slots:
     void onPebbleConnected();
@@ -193,9 +190,15 @@ private slots:
     void saveTextContacts() const;
     void saveTextMessages(const QByteArray &key) const;
     void muteNotificationSource(const QString &source);
-    void voiceSessionRequest(const QUuid &appUuid, const SpeexInfo &codec);
-    void voiceAudioStream(quint16 sid, const AudioStream &frames);
+
+    // VoiceSession / Dictation
+    void voiceSessionRequest(quint16 sesId, const QUuid &appUuid, const SpeexInfo &codec);
+    void voiceAudioStream(quint16 sesId, const AudioStream &frames);
     void voiceSessionClose(quint16 sesId);
+    void voiceSessionResponse(const QBluetoothAddress &addr, quint16 sesId, quint8 result);
+    void voiceSessionResult(const QBluetoothAddress &addr, quint16 sesId, const QVariantList &sentences);
+    void voiceAudioStop(const QBluetoothAddress &addr, quint16 sesId);
+
     void saveWeatherLocations() const;
     void initWeatherProvider(const QSettings &settings);
 
@@ -221,10 +224,6 @@ signals:
     void contactsChanged() const;
     void messagesChanged() const;
     void weatherLocationsChanged(const QVariantList &locations) const;
-    void voiceSessionSetup(const QString &fileName, const QString &format, const QString &appUuid);
-    void voiceSessionStream(const QString &fileName);
-    void voiceSessionDumped(const QString &fileName);
-    void voiceSessionClosed(const QString &fileName);
 
     void calendarSyncEnabledChanged();
     void imperialUnitsChanged();
@@ -269,7 +268,6 @@ private:
     WeatherApp * m_weatherApp;
     WeatherProvider * m_weatherProv;
     VoiceEndpoint * m_voiceEndpoint;
-    QTemporaryFile* m_voiceSessDump = nullptr;
 
     QString m_storagePath;
     QString m_imagePath;

@@ -67,6 +67,16 @@ public:
 signals:
     void delTimelinePin(const QString &guid);
 
+// Dictation
+public:
+    virtual void voiceSessionRequest(const QBluetoothAddress &pblAddr, quint16 sid, const QUuid &appUuid, const SpeexInfo &codec) = 0;
+    virtual void voiceAudioStream(const QBluetoothAddress &pblAddr, quint16 sid, const AudioStream &frames) = 0;
+    virtual void voiceSessionClose(const QBluetoothAddress &pblAddr, quint16 sid) = 0;
+signals:
+    void voiceSessionResponse(const QBluetoothAddress &addr, quint16 sesId, quint8 result);
+    void voiceSessionResult(const QBluetoothAddress &addr, quint16 sesId, const QVariantList &sentences);
+    void voiceAudioStop(const QBluetoothAddress &addr, quint16 sesId);
+
 };
 
 #endif // PLATFORMINTERFACE_H

@@ -129,6 +129,9 @@ Pebble::Pebble(const QBluetoothAddress &address, QObject *parent):
     QObject::connect(m_voiceEndpoint, &VoiceEndpoint::sessionSetupRequest, this, &Pebble::voiceSessionRequest);
     QObject::connect(m_voiceEndpoint, &VoiceEndpoint::audioFrame, this, &Pebble::voiceAudioStream);
     QObject::connect(m_voiceEndpoint, &VoiceEndpoint::sessionCloseNotice, this, &Pebble::voiceSessionClose);
+    QObject::connect(Core::instance()->platform(), &PlatformInterface::voiceSessionResponse, this, &Pebble::voiceSessionResponse);
+    QObject::connect(Core::instance()->platform(), &PlatformInterface::voiceSessionResult, this, &Pebble::voiceSessionResult);
+    QObject::connect(Core::instance()->platform(), &PlatformInterface::voiceAudioStop, this, &Pebble::voiceAudioStop);
 
     QSettings watchInfo(m_storagePath + "/watchinfo.conf", QSettings::IniFormat);
     m_model = (Model)watchInfo.value("watchModel", (int)ModelUnknown).toInt();
@@ -710,67 +713,40 @@ QString Pebble::imagePath() const
     return m_imagePath;
 }
 
-void Pebble::voiceSessionRequest(const QUuid &appUuid, const SpeexInfo &codec)
+void Pebble::voiceSessionRequest(quint16 sessId, const QUuid &appUuid, const SpeexInfo &codec)
 {
-    if(m_voiceSessDump) {
-        m_voiceEndpoint->sessionSetupResponse(VoiceEndpoint::ResInvalidMessage,appUuid);
-        return;
-    }
-    m_voiceSessDump = new QTemporaryFile(this);
-    if(m_voiceSessDump->open()) {
-        QString mime = QString("audio/speex; rate=%1; bitrate=%2; bitstreamver=%3; frame=%4").arg(
-                QString::number(codec.sampleRate),
-                QString::number(codec.bitRate),
-                QString::number(codec.bitstreamVer),
-                QString::number(codec.frameSize));
-        emit voiceSessionSetup(m_voiceSessDump->fileName(),mime,appUuid.toString());
-        m_voiceEndpoint->sessionSetupResponse(VoiceEndpoint::ResSuccess,appUuid);
-        qDebug() << "Opened session for" << mime << "to" << m_voiceSessDump->fileName() << "from" << appUuid.toString();
-    } else {
-        m_voiceSessDump->deleteLater();
-        m_voiceEndpoint->sessionSetupResponse(VoiceEndpoint::ResServiceUnavail,appUuid);
-        m_voiceSessDump = nullptr;
-    }
+    qDebug() << "Requesting dictation session for" << appUuid << "sid" << sessId << QString::fromLatin1(codec.version) << codec.bitstreamVer << codec.sampleRate << codec.bitRate << codec.frameSize;
+    Core::instance()->platform()->voiceSessionRequest(m_address, sessId, appUuid, codec);
 }
 void Pebble::voiceSessionClose(quint16 sesId)
 {
-    qDebug() << "Cleaning up and forwarding further closure of session" << sesId << m_voiceSessDump->fileName();
-    emit voiceSessionClosed(m_voiceSessDump->fileName());
-    m_voiceSessDump->deleteLater();
-    m_voiceSessDump = 0;
+    qDebug() << "Cleaning up and forwarding further closure of session" << sesId;
+    Core::instance()->platform()->voiceSessionClose(m_address,sesId);
 }
-void Pebble::voiceAudioStream(quint16 sid, const AudioStream &frames)
+void Pebble::voiceAudioStream(quint16 sesId, const AudioStream &frames)
 {
-    Q_UNUSED(sid);
-    if(frames.count>0) {
-        if(m_voiceSessDump->pos()==0) {
-            emit voiceSessionStream(m_voiceSessDump->fileName());
-            qDebug() << "Audio Stream has started dumping to" << m_voiceSessDump->fileName();
-        }
-        for(int i=0;i<frames.count;i++) {
-            m_voiceSessDump->write(frames.frames.at(i).data);
-        }
-    } else {
-        qDebug() << "Audio Stream has finished dumping to" << m_voiceSessDump->fileName();
-        m_voiceSessDump->close();
-        emit voiceSessionDumped(m_voiceSessDump->fileName());
+    //qDebug() << "Voice stream for session" << sesId << frames.count << "frames";
+    Core::instance()->platform()->voiceAudioStream(m_address,sesId,frames);
+}
+
+void Pebble::voiceSessionResponse(const QBluetoothAddress &addr, quint16 sesId, quint8 result)
+{
+    if(m_address == addr) {
+        qDebug() << "Dictation session response for" << sesId << result;
+        m_voiceEndpoint->sessionSetupResponse(sesId, (VoiceEndpoint::Result)result);
     }
 }
-void Pebble::voiceAudioStop()
+void Pebble::voiceAudioStop(const QBluetoothAddress &addr, quint16 sesId)
 {
-    if(m_voiceSessDump->pos()==0) {
-        qDebug() << "Audio transfer didn't happen at current session, cleaning up" << m_voiceSessDump->fileName();
-        m_voiceEndpoint->sessionSetupResponse(VoiceEndpoint::ResRecognizerError,m_voiceSessDump->property("uuid").toUuid());
-        m_voiceSessDump->deleteLater();
-        emit voiceSessionClosed(m_voiceSessDump->fileName());
-        m_voiceSessDump = nullptr;
-    } else {
-        m_voiceEndpoint->stopAudioStream();
+    if(m_address == addr) {
+        qDebug() << "Ordering to stop voice stream for" << sesId;
+        m_voiceEndpoint->stopAudioStream(sesId);
     }
 }
-void Pebble::voiceSessionResult(const QString &fileName, const QVariantList &sentences)
+void Pebble::voiceSessionResult(const QBluetoothAddress &addr, quint16 sesId, const QVariantList &sentences)
 {
-    if(m_voiceSessDump && m_voiceSessDump->fileName() == fileName) {
+    if(m_address == addr) {
+        qDebug() << "Dictation response:" << sentences.count() << "sentences";
         QList<VoiceEndpoint::Sentence> data;
         foreach (const QVariant &vl, sentences) {
             VoiceEndpoint::Sentence st;
@@ -790,7 +766,7 @@ void Pebble::voiceSessionResult(const QString &fileName, const QVariantList &sen
             }
             data.append(st);
         }
-        m_voiceEndpoint->transcriptionResponse(VoiceEndpoint::ResSuccess, data, QUuid());
+        m_voiceEndpoint->transcriptionResponse(sesId, VoiceEndpoint::ResSuccess, data);
     }
 }
 

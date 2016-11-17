@@ -12,7 +12,7 @@ CONFIG += link_pkgconfig
 INCLUDEPATH += $$[QT_HOST_PREFIX]/include/quazip/
 LIBS += -lquazip
 
-PKGCONFIG += qt5-boostable libmkcal-qt5 libkcalcoren-qt5 dbus-1 mpris-qt5 timed-qt5 Qt5WebSockets
+PKGCONFIG += qt5-boostable libmkcal-qt5 libkcalcoren-qt5 dbus-1 mpris-qt5 timed-qt5 Qt5WebSockets speex ogg
 INCLUDEPATH += /usr/include/mkcal-qt5 /usr/include/kcalcoren-qt5
 
 SOURCES += main.cpp \
@@ -75,6 +75,7 @@ SOURCES += main.cpp \
     platformintegration/sailfish/notificationmonitor.cpp \
     platformintegration/sailfish/notifications.cpp \
     platformintegration/sailfish/modecontrolentity.cpp \
+    platformintegration/sailfish/dictationhandler.cpp \
     platformintegration/sailfish/walltimemonitor.cpp
 
 HEADERS += \
@@ -140,6 +141,7 @@ HEADERS += \
     platformintegration/sailfish/notifications.h \
     platformintegration/sailfish/modecontrolentity.h \
     platformintegration/sailfish/nokia-mce-dbus-names.h \
+    platformintegration/sailfish/dictationhandler.h \
     platformintegration/sailfish/walltimemonitor.h
 
 testing: {

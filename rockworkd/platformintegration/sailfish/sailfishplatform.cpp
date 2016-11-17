@@ -6,6 +6,7 @@
 #include "musiccontroller.h"
 #include "notificationmonitor.h"
 #include "walltimemonitor.h"
+#include "dictationhandler.h"
 
 #include <QDBusConnection>
 #include <QDebug>
@@ -348,6 +349,30 @@ void SailfishPlatform::handleClosedNotification(watchfish::Notification::CloseRe
         it++;
     }
     qDebug() << "Notification not found";
+}
+
+void SailfishPlatform::voiceSessionRequest(const QBluetoothAddress &pblAddr, quint16 sid, const QUuid &appUuid, const SpeexInfo &codec)
+{
+    if(!m_dicts.contains(pblAddr)) {
+        DictationHandler *d = new DictationHandler(this,pblAddr);
+        m_dicts.insert(pblAddr,d);
+        connect(d, &DictationHandler::voiceSessionResponse, this, &SailfishPlatform::voiceSessionResponse);
+        connect(d, &DictationHandler::voiceSessionResult, this, &SailfishPlatform::voiceSessionResult);
+        connect(d, &DictationHandler::voiceAudioStop, this, &SailfishPlatform::voiceAudioStop);
+    }
+    m_dicts.value(pblAddr)->voiceSessionRequest(appUuid,sid,codec);
+}
+
+void SailfishPlatform::voiceAudioStream(const QBluetoothAddress &pblAddr, quint16 sid, const AudioStream &frames)
+{
+    if(m_dicts.contains(pblAddr))
+        m_dicts.value(pblAddr)->voiceAudioStream(sid,frames);
+}
+
+void SailfishPlatform::voiceSessionClose(const QBluetoothAddress &pblAddr, quint16 sid)
+{
+    if(m_dicts.contains(pblAddr))
+        m_dicts.value(pblAddr)->voiceSessionClose(sid);
 }
 
 void SailfishPlatform::sendMusicControlCommand(MusicControlButton controlButton)

@@ -16,6 +16,7 @@
 class QDBusPendingCallWatcher;
 class VoiceCallManager;
 class OrganizerAdapter;
+class DictationHandler;
 
 class SailfishPlatform : public PlatformInterface, public QDBusContext
 {
@@ -45,6 +46,10 @@ public:
     void setCannedResponses(const QHash<QString, QStringList> &cans) override;
     void sendTextMessage(const QString &account, const QString &contact, const QString &text) const override;
 
+    void voiceSessionRequest(const QBluetoothAddress &pblAddr, quint16 sid, const QUuid &appUuid, const SpeexInfo &codec);
+    void voiceAudioStream(const QBluetoothAddress &pblAddr, quint16 sid, const AudioStream &frames);
+    void voiceSessionClose(const QBluetoothAddress &pblAddr, quint16 sid);
+
 public slots:
     void newNotificationPin(watchfish::Notification *notification);
     void handleClosedNotification(watchfish::Notification::CloseReason reason);
@@ -70,6 +75,7 @@ private:
     watchfish::NotificationMonitor *m_notificationMonitor;
     watchfish::WallTimeMonitor *m_wallTimeMonitor;
     QHash<QString,QStringList> m_cans;
+    QMap<QBluetoothAddress,DictationHandler*> m_dicts;
 };
 
 #endif // SAILFISHPLATFORM_H
