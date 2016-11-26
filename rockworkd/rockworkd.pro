@@ -76,6 +76,7 @@ SOURCES += main.cpp \
     platformintegration/sailfish/notifications.cpp \
     platformintegration/sailfish/modecontrolentity.cpp \
     platformintegration/sailfish/dictationhandler.cpp \
+    platformintegration/sailfish/qspeechrecognitionenginenuance.cpp \
     platformintegration/sailfish/walltimemonitor.cpp
 
 HEADERS += \
@@ -142,6 +143,7 @@ HEADERS += \
     platformintegration/sailfish/modecontrolentity.h \
     platformintegration/sailfish/nokia-mce-dbus-names.h \
     platformintegration/sailfish/dictationhandler.h \
+    platformintegration/sailfish/qspeechrecognitionenginenuance.h \
     platformintegration/sailfish/walltimemonitor.h
 
 testing: {

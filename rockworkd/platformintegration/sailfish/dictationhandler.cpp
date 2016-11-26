@@ -2,17 +2,31 @@
 
 #include "libpebble/voiceendpoint.h"
 #include "libpebble/watchdatawriter.h"
+#include "qspeechrecognitionenginenuance.h"
+#include "nuance_creds.h"
 
 #include <speex/speex.h>
 
 #include <QDebug>
 #include <QTemporaryFile>
+#include <QNetworkAccessManager>
 
 DictationHandler::DictationHandler(QObject *parent, const QBluetoothAddress &addr) :
     QObject(parent),
     m_address(addr)
 {
+    m_asr = new QSpeechRecognitionEngineNuance("nuance",
+                                               QVariantMap({
+                                                               {"AudioFormat","x-speex"},
+                                                               {"AudioSampleRate","16000"},
+                                                               {"AdaptationId",addr.toString().replace(":","0")},
+                                                               {"ApplicationId",QStringLiteral(NUANCE_APP_ID)},
+                                                               {"ApplicationKey",QStringLiteral(NUANCE_APP_KEY)}
+                                                           }),
+                                               this);
     qDebug() << "Created dictation service for " << addr.toString();
+    m_asr->setNAM(new QNetworkAccessManager(this));
+    connect(m_asr, &QSpeechRecognitionEngineNuance::result, this, &DictationHandler::onResult);
 }
 
 qint64 ogg_write_page(ogg_page *op, QIODevice *d) {
@@ -57,7 +71,7 @@ void DictationHandler::voiceSessionRequest(const QUuid &appUuid, quint16 sesId, 
         if(!ogg_stream_init(&os,qrand())) {
             int op_len;
             speex_init_header(&sph,codec.sampleRate,1,&speex_wb_mode);
-            sph.frames_per_packet = 1;
+            sph.frames_per_packet = 10;
             sph.bitrate = codec.bitRate;
             sph.frame_size = codec.frameSize;
             sph.mode_bitstream_version = codec.bitstreamVer;
@@ -85,8 +99,11 @@ void DictationHandler::voiceSessionRequest(const QUuid &appUuid, quint16 sesId, 
                 ogg_stream_packetin(&os,&op);
                 // Inform requestor of our readiness
                 if(ogg_flush_stream(&os,m_voiceSessDump) > 0) {
-                    emit voiceSessionResponse(m_address, m_sessId, VoiceEndpoint::ResSuccess);
-                    qDebug() << "Opened session" << m_sessId << " for (" << comment << ") to" << m_voiceSessDump->fileName() << "from" << appUuid.toString();
+                    if(m_asr->startListening(m_sessId,true,nullptr) == QSpeechRecognitionEngineNuance::ErrSuccess) {
+                        emit voiceSessionResponse(m_address, m_sessId, VoiceEndpoint::ResSuccess);
+                        qDebug() << "Opened session" << m_sessId << " for (" << comment << ") to" << m_voiceSessDump->fileName() << "from" << appUuid.toString();
+                        m_asr->setParameter("AudioInputFile",m_voiceSessDump->fileName(),nullptr);
+                    }
                     return;
                 }
                 qCritical() << "Could not write OGG header to " << m_voiceSessDump->fileName();
@@ -119,6 +136,7 @@ void DictationHandler::voiceAudioStream(quint16 sesId, const AudioStream &frames
         int i = 0;
         if(op.packetno == 1) {
             //emit voiceSessionStream(m_voiceSessDump->fileName());
+            //m_asr->unmute(QDateTime::currentMSecsSinceEpoch());
             qDebug() << "Audio Stream has started dumping" << frames.count << "frames to" << m_voiceSessDump->fileName();
             m_buf = frames.frames.at(0).data;
             op.packet = (unsigned char*)m_buf.constData();
@@ -129,11 +147,14 @@ void DictationHandler::voiceAudioStream(quint16 sesId, const AudioStream &frames
         }
         for(;i<frames.count;i++) {
             ogg_stream_packetin(&os,&op);
-            if(ogg_flush_stream(&os,m_voiceSessDump)==0) {
-                qCritical() << "Cannot write frames to" << m_voiceSessDump->fileName() << m_voiceSessDump->errorString();
-                emit voiceAudioStop(m_address,m_sessId);
-                emit voiceSessionResponse(m_address,m_sessId,VoiceEndpoint::ResRecognizerError);
-                return;
+            if((op.packetno-1)%sph.frames_per_packet==0) {
+                if(ogg_flush_stream(&os,m_voiceSessDump)==0) {
+                    qCritical() << "Cannot write frames to" << m_voiceSessDump->fileName() << m_voiceSessDump->errorString();
+                    emit voiceAudioStop(m_address,m_sessId);
+                    emit voiceSessionResponse(m_address,m_sessId,VoiceEndpoint::ResRecognizerError);
+                    return;
+                }
+                //m_asr->process();
             }
             m_buf = frames.frames.at(0).data;
             op.packet = (unsigned char*)m_buf.constData();
@@ -152,8 +173,9 @@ void DictationHandler::voiceAudioStream(quint16 sesId, const AudioStream &frames
         qDebug() << "Audio Stream has finished dumping" << op.packetno << "packets and" << op.granulepos << "samples to" << m_voiceSessDump->fileName();
         m_voiceSessDump->close();
         ogg_stream_clear(&os);
-        m_voiceSessDump->copy("/home/nemo/pebble.ogg");
+        m_asr->stopListening(QDateTime::currentMSecsSinceEpoch());
         //emit voiceSessionDumped(m_voiceSessDump->fileName());
+        m_voiceSessDump->copy("/home/nemo/pebble.ogg");
     }
 }
 
@@ -170,4 +192,24 @@ void DictationHandler::voiceSessionClose(quint16 sesId)
         m_sessId = -1;
     } else
         qWarning() << "Ignoring closure notification for unknown session" << sesId << m_sessId;
+}
+
+void DictationHandler::onResult(int session, const QSpeechRecognitionGrammar *grammar, const QVariantMap &params)
+{
+    Q_UNUSED(grammar);
+    qDebug() << "Received result" << session << params;
+    if(session == m_sessId && params.contains("Transcription")) {
+        QVariantList sentences;
+        foreach (const QString word, params.value("Transcription").toString().split(' ')) {
+            sentences.append(QVariantList({word,100}));
+        }
+        if(!sentences.isEmpty()) {
+            emit voiceSessionResult(m_address, m_sessId, sentences);
+            m_asr->setParameter("AudioInputFile",QVariant(),nullptr);
+            return;
+        }
+        qWarning() << "Empty dictation result for session" << m_sessId;
+        m_sessId = -1;
+    } else
+        qWarning() << "Invalid dictation result" << m_sessId << session << params;
 }

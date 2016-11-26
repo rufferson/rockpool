@@ -11,6 +11,8 @@
 class QTemporaryFile;
 struct SpeexInfo;
 struct AudioStream;
+class QSpeechRecognitionEngineNuance;
+struct QSpeechRecognitionGrammar;
 
 class DictationHandler : public QObject
 {
@@ -28,6 +30,9 @@ public slots:
     void voiceAudioStream(quint16 sesId, const AudioStream &frames);
     void voiceSessionClose(quint16 sesId);
 
+protected slots:
+    void onResult(int session, const QSpeechRecognitionGrammar * grammar, const QVariantMap &params);
+
 private:
     QBluetoothAddress m_address;
 
@@ -38,6 +43,8 @@ private:
     ogg_packet op;
     SpeexHeader sph;
     QByteArray m_buf;
+
+    QSpeechRecognitionEngineNuance *m_asr;
 };
 
 #endif // DICTATIONHANDLER_H
