@@ -25,8 +25,7 @@ Requires:   systemd-user-session-targets
 Requires:   nemo-qml-plugin-dbus-qt5
 Requires:   qt5-qtwebsockets
 Requires:   quazip
-Requires:   xulrunner-qt5
-Requires:   qtmozembed-qt5
+Requires:   sailfish-components-webview-qt5 >= 0.0.5
 Requires:   speex
 Requires:   libogg
 BuildRequires:  pkgconfig(Qt5DBus)
@@ -47,8 +46,10 @@ BuildRequires:  pkgconfig(icu-i18n)
 BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(libmkcal-qt5)
 BuildRequires:  pkgconfig(libkcalcoren-qt5)
+BuildRequires:  pkgconfig(sailfishwebengine)
 BuildRequires:  pkgconfig(speex)
 BuildRequires:  pkgconfig(ogg)
+BuildRequires:  quazip-devel
 BuildRequires:  desktop-file-utils
 
 %description

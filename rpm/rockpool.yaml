@@ -13,6 +13,8 @@ Configure: none
 Builder: qtc5
 QMakeOptions:
 - VERSION='%{version}-%{release}'
+PkgBR:
+- quazip-devel
 PkgConfigBR:
 - Qt5DBus
 - Qt5Bluetooth
@@ -32,6 +34,7 @@ PkgConfigBR:
 - zlib
 - libmkcal-qt5
 - libkcalcoren-qt5
+- sailfishwebengine
 - speex
 - ogg
 Requires:
@@ -40,8 +43,7 @@ Requires:
 - nemo-qml-plugin-dbus-qt5
 - qt5-qtwebsockets
 - quazip
-- xulrunner-qt5
-- qtmozembed-qt5
+- sailfish-components-webview-qt5 >= 0.0.5
 - speex
 - libogg
 Files:

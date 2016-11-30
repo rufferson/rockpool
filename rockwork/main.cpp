@@ -11,12 +11,10 @@
 #include "appstoreclient.h"
 #include "screenshotmodel.h"
 
-#define WITH_QTMOZEMBED 1
-#ifdef WITH_QTMOZEMBED
-#include "qmozcontext.h"
+#include <qmozcontext.h>
+#include <qmozenginesettings.h>
 #define DEFAULT_COMPONENTS_PATH "/usr/lib/mozembedlite/"
 #include <QTimer>
-#endif
 
 #ifndef ROCKPOOL_DATA_PATH
 #define ROCKPOOL_DATA_PATH "/usr/share/rockpool/"
@@ -43,11 +41,15 @@ int main(int argc, char *argv[])
     qmlRegisterType<ServiceControl>("RockPool", 1, 0, "ServiceController");
     qmlRegisterType<AppStoreClient>("RockPool", 1, 0, "AppStoreClient");
     qmlRegisterType<ScreenshotModel>("RockPool", 1, 0, "ScreenshotModel");
-#ifdef WITH_QTMOZEMBED
+
+    // Workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=929879
+    setenv("LC_NUMERIC", "C", 1);
+    setlocale(LC_NUMERIC, "C");
     // This must be set or app segfaults under maplaunchd's boostable invoker
     setenv("GRE_HOME", app->applicationDirPath().toLocal8Bit().constData(), 1);
     setenv("USE_ASYNC", "1", 1);// Use Qt Assisted event loop instead of native full thread
     setenv("MP_UA", "1", 1);    // Use generic MobilePhone UserAgent string for Gecko
+
     QString componentPath(DEFAULT_COMPONENTS_PATH);
     QString cachePath(QStandardPaths::writableLocation(QStandardPaths::CacheLocation));
     QMozContext::GetInstance()->setProfile(cachePath);
@@ -60,20 +62,23 @@ int main(int argc, char *argv[])
         qDebug() << "Purging gecko startupCache at" << cache.absoluteFilePath();
         QFile::remove(cache.absoluteFilePath());
     }
-    QMozContext::GetInstance()->addComponentManifest(componentPath + QString("components/EmbedLiteBinComponents.manifest"));
-    QMozContext::GetInstance()->addComponentManifest(componentPath + QString("components/EmbedLiteJSComponents.manifest"));
-    QMozContext::GetInstance()->addComponentManifest(componentPath + QString("chrome/EmbedLiteJSScripts.manifest"));
-    QMozContext::GetInstance()->addComponentManifest(componentPath + QString("chrome/EmbedLiteOverrides.manifest"));
-    QMozContext::GetInstance()->addComponentManifest(manifest.absoluteFilePath());
-    QObject::connect(app.data(), SIGNAL(lastWindowClosed()), QMozContext::GetInstance(), SLOT(stopEmbedding()));
-#endif
+    QMozContext::instance()->addComponentManifest(componentPath + QString("components/EmbedLiteBinComponents.manifest"));
+    QMozContext::instance()->addComponentManifest(componentPath + QString("components/EmbedLiteJSComponents.manifest"));
+    QMozContext::instance()->addComponentManifest(componentPath + QString("chrome/EmbedLiteJSScripts.manifest"));
+    QMozContext::instance()->addComponentManifest(componentPath + QString("chrome/EmbedLiteOverrides.manifest"));
+    QMozContext::instance()->addComponentManifest(manifest.absoluteFilePath());
+    // EngineSettings takes care of proper timing
+    QMozEngineSettings::instance()->setPreference("security.tls.version.min",1);
+    // run gecko thread
+    QTimer::singleShot(0, QMozContext::instance(), SLOT(runEmbedding()));
+
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     view->rootContext()->setContextProperty("version", QStringLiteral(VERSION));
     view->rootContext()->setContextProperty("locale", locale);
-#ifdef WITH_QTMOZEMBED
-    view->rootContext()->setContextProperty("MozContext", QMozContext::GetInstance());
-    QTimer::singleShot(0, QMozContext::GetInstance(), SLOT(runEmbedding()));
-#endif
+    view->rootContext()->setContextProperty("MozContext", QMozContext::instance());
+    view->rootContext()->setContextProperty("appFilePath",QCoreApplication::applicationFilePath());
+
+
     view->setSource(SailfishApp::pathTo("qml/rockpool.qml"));
     view->show();
 
