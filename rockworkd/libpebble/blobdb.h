@@ -22,7 +22,8 @@ public:
         BlobDBIdAppSettings = 7, // this is rather HealthAppSettings
         BlobDBIdContacts = 8,
         BlobDBIdAppConfigs = 9, // Config Data References
-        BlobDBIdAppGlance = 11
+        BlobDBIdAppGlance = 11,
+        BlobDbIdVoid = 0xff
     };
     enum Operation {
         OperationInsert = 0x01,

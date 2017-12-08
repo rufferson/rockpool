@@ -1528,10 +1528,21 @@ void Pebble::resetTimeline()
 
 void Pebble::resetPebble()
 {
-    resetTimeline();
-
+    clearTimeline();
+    m_blobDB->clear(BlobDB::BlobDBIdWeatherData);
+    m_blobDB->clear(BlobDB::blobDBIdSendTextData);
+    m_blobDB->clear(BlobDB::BlobDBIdAppSettings);
+    m_blobDB->clear(BlobDB::BlobDBIdContacts);
+    m_blobDB->clear(BlobDB::BlobDBIdAppConfigs);
+    m_blobDB->clear(BlobDB::BlobDBIdAppGlance);
     clearAppDB();
+    m_blobDB->clear(BlobDB::BlobDbIdVoid);
     syncApps();
+    syncCalendar();
+    emit m_timelineSync->syncUrlChanged("");
+    emit m_weatherApp->requestUpdate();
+    m_sendTextApp->setCannedMessages(m_sendTextApp->getCannedMessages());
+    m_sendTextApp->setCannedContacts(m_sendTextApp->getCannedContacts());
 }
 
 void Pebble::syncApps()
